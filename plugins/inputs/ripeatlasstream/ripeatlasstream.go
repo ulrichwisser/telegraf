@@ -3,6 +3,7 @@ package ripeatlasstream
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
@@ -92,14 +93,24 @@ func (m *RipeAtlasStream) Description() string {
 
 type Subscription struct {
 	Streamtype string `json:"stream_type"`
-	Prb        int    `json:"prb"`
+	//Prb        int    `json:"prb"`
+}
+
+type Probestatus struct {
+	Timestamp  int    `json:"timestamp"`
+	Prefix     string `json:"prefix"`
+	Event      string `json:"event"`
+	Controller string `json:"controller"`
+	Id         int    `json:"prb_id"`
+	Type       string `json:"type"`
+	Asn        string `json:"asn"`
 }
 
 func (m *RipeAtlasStream) Start(acc telegraf.Accumulator) error {
 	m.Lock()
 	defer m.Unlock()
-	fmt.Println("XXXXX")
 	m.started = false
+	m.acc = acc
 	var err error
 
 	//connect to server, you can use your own transport settings
@@ -114,9 +125,26 @@ func (m *RipeAtlasStream) Start(acc telegraf.Accumulator) error {
 	m.client.On(gosocketio.OnConnection, func(h *gosocketio.Channel) {
 		fmt.Println("Connected")
 	})
-	m.client.Emit("atlas_subscribe", Subscription{Streamtype: "probestatus", Prb: 22527})
+	m.client.Emit("atlas_subscribe", Subscription{Streamtype: "probestatus"})
+	m.client.On("atlas_probestatus", func(h *gosocketio.Channel, args Probestatus) {
+		fmt.Printf("New status for probe %d: %s\n", args.Id, args.Event)
+		tags := map[string]string{
+			"prefix":     args.Prefix,
+			"controller": args.Controller,
+			"probe_id":   fmt.Sprintf("%d", args.Id),
+			"type":       args.Type,
+			"asn":        args.Asn,
+		}
+		if tags["asn"] == "" {
+			tags["asn"] = "0"
+		}
+		if tags["prefix"] == "" {
+			tags["prefix"] = "0"
+		}
+		fields := map[string]interface{}{"status": args.Event}
+		acc.AddFields("atlas_probestatus", fields, tags, time.Unix(int64(args.Timestamp), 0))
+	})
 	//m.client.Emit("atlas_subscribe", "")
-	fmt.Println("YYYYYY")
 
 	m.done = make(chan struct{})
 
