@@ -1,6 +1,7 @@
 package ripeatlasstream
 
 import (
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -103,7 +104,34 @@ type Probestatus struct {
 	Controller string `json:"controller"`
 	Id         int    `json:"prb_id"`
 	Type       string `json:"type"`
-	Asn        string `json:"asn"`
+	Asn        ASN    `json:"asn"`
+}
+
+type ASN struct {
+	ID string
+}
+
+func (a *ASN) UnmarshalJSON(b []byte) (err error) {
+	var v interface{}
+
+	if err := json.Unmarshal(b, &v); err != nil {
+		return err
+	}
+	switch v.(type) {
+	case string:
+		a.ID = v.(string)
+	case int:
+		a.ID = fmt.Sprintf("%d", v.(int))
+	case float32:
+		a.ID = fmt.Sprintf("%.0f", v.(float32))
+	case float64:
+		a.ID = fmt.Sprintf("%.0f", v.(float64))
+	case nil:
+		a.ID = ""
+	default:
+		return fmt.Errorf("Unknown data type for ASN")
+	}
+	return nil
 }
 
 func (m *RipeAtlasStream) Start(acc telegraf.Accumulator) error {
@@ -133,7 +161,7 @@ func (m *RipeAtlasStream) Start(acc telegraf.Accumulator) error {
 			"controller": args.Controller,
 			"probe_id":   fmt.Sprintf("%d", args.Id),
 			"type":       args.Type,
-			"asn":        args.Asn,
+			"asn":        args.Asn.ID,
 		}
 		if tags["asn"] == "" {
 			tags["asn"] = "0"
