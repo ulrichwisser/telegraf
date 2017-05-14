@@ -143,7 +143,7 @@ func (m *RipeAtlasStream) Start(acc telegraf.Accumulator) error {
 
 	//connect to server, you can use your own transport settings
 	m.client, err = gosocketio.Dial(
-		"ws://atlas-stream.ripe.net:80/stream/socket.io/?EIO=3&transport=websocket",
+		gosocketio.GetUrl("atlas-stream.ripe.net", 80, false, "/stream"),
 		transport.GetDefaultWebsocketTransport(),
 	)
 	if err != nil {
