@@ -2,7 +2,6 @@
 package dns_hostname_bind
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -12,7 +11,6 @@ import (
 	"github.com/miekg/dns"
 
 	"github.com/influxdata/telegraf"
-	"github.com/influxdata/telegraf/internal/errchan"
 	"github.com/influxdata/telegraf/plugins/inputs"
 )
 
@@ -49,11 +47,10 @@ func (d *DnsHostnameBind) Description() string {
 func (d *DnsHostnameBind) Gather(acc telegraf.Accumulator) error {
 	d.setDefaultValues()
 
-	errChan := errchan.New(len(d.Servers))
 	for _, server := range d.Servers {
 		dnsQueryTime, hostname, err := d.getDnsQueryTime(server)
 		if err != nil {
-			errChan.C <- err
+			acc.AddError(err)
 			continue
 		}
 		tags := map[string]string{
@@ -63,7 +60,7 @@ func (d *DnsHostnameBind) Gather(acc telegraf.Accumulator) error {
 		acc.AddFields("dns_hostname_bind", fields, tags)
 	}
 
-	return errChan.Error()
+	return nil
 }
 
 func (d *DnsHostnameBind) setDefaultValues() {
@@ -95,7 +92,7 @@ func (d *DnsHostnameBind) getDnsQueryTime(server string) (dnsQueryTime float64, 
 		return
 	}
 	if r.Rcode != dns.RcodeSuccess {
-		return dnsQueryTime, hostname, errors.New(fmt.Sprintf("Invalid answer from %s\n", server))
+		return dnsQueryTime, hostname, fmt.Errorf("Invalid answer from %s", server)
 	}
 	dnsQueryTime = float64(rtt.Nanoseconds()) / 1e6
 	for _, answer := range r.Answer {
