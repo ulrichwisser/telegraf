@@ -83,6 +83,7 @@ func (d *Dnskey) Gather(acc telegraf.Accumulator) error {
 
 			fields := map[string]interface{}{
 				"query_time_ms": dnsQueryTime,
+				"epoch":         time.Now().Unix(),
 			}
 			acc.AddFields("dnskey", fields, tags)
 		}
